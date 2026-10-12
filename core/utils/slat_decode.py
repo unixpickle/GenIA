@@ -153,9 +153,10 @@ def redecode_slat(
 
 
 def make_scene(*outputs, in_place=False):
-    # Local, not module-level: a host process may put its own sam3d_objects fork on
-    # sys.path before first use, and this import must resolve to that one.
-    from sam3d_objects.utils.visualization import SceneVisualizer
+    # Scene assembly only needs the SAM geometry transform. Importing its
+    # notebook visualizer also loads optional Plotly/ray-rendering dependencies.
+    from sam3d_objects.data.dataset.tdfy.transforms_3d import compose_transform
+    from pytorch3d.transforms import quaternion_to_matrix
 
     if not in_place:
         outputs = [copy.deepcopy(output) for output in outputs]
@@ -164,13 +165,13 @@ def make_scene(*outputs, in_place=False):
     minimum_kernel_size = float("inf")
     for output in outputs:
         # move gaussians to scene frame of reference
-        PC = SceneVisualizer.object_pointcloud(
-            points_local=output["gaussian"][0].get_xyz.unsqueeze(0),
-            quat_l2c=output["rotation"],
-            trans_l2c=output["translation"],
-            scale_l2c=output["scale"],
+        transform = compose_transform(
+            scale=output["scale"],
+            rotation=quaternion_to_matrix(output["rotation"]),
+            translation=output["translation"],
         )
-        output["gaussian"][0].from_xyz(PC.points_list()[0])
+        points = transform.transform_points(output["gaussian"][0].get_xyz.unsqueeze(0))
+        output["gaussian"][0].from_xyz(points[0])
         # must ... ROTATE
         output["gaussian"][0].from_rotation(
             quaternion_multiply(
@@ -311,7 +312,7 @@ def decode_tokens(
     from sam3d_objects.model.backbone.tdfy_dit.modules import sparse as sp
 
     slat = sp.SparseTensor(feats=opt_feats, coords=coords)
-    with torch.autocast("cuda", dtype=torch.bfloat16, enabled=autocast_bf16):
+    with torch.autocast(opt_feats.device.type, dtype=torch.bfloat16, enabled=autocast_bf16):
         gaussians_list = decoder(slat)
     g = gaussians_list[0]
     if autocast_bf16:
@@ -338,7 +339,7 @@ def decode_tokens(
 # Cache values store ``(wrapped_decoder, [(rank, in_features, init,
 # device), …])`` — the second element is the per-layer spec list needed
 # for replay, in named_modules iteration order (same order apply_lora used).
-_LORA_DECODER_CACHE: Dict[Tuple[int, int, float, str, bool, bool, str],
+_LORA_DECODER_CACHE: Dict[Tuple,
                           Tuple[torch.nn.Module, List[Tuple]]] = {}
 
 
@@ -364,8 +365,12 @@ def _get_or_build_wrapped_decoder(
     """
     from .lora import apply_lora_to_decoder, lora_layers, _init_lora_A
 
+    # A decoder can be promoted from its checkpoint precision before fine-
+    # tuning. A template built earlier must not silently restore half weights.
+    precision = (getattr(base_decoder, "dtype", None),
+                 tuple((p.device, p.dtype) for p in base_decoder.parameters()))
     key = (id(base_decoder), int(rank), float(alpha), str(init),
-           bool(use_dora), bool(rs_scaling), str(lora_targets))
+           bool(use_dora), bool(rs_scaling), str(lora_targets), precision)
     cached = _LORA_DECODER_CACHE.get(key)
     if cached is not None:
         wrapped, specs = cached
@@ -448,6 +453,11 @@ def decode_with_lora(
         lora_targets=lora_targets,
     )
     decoder = copy.deepcopy(wrapped_template)
+    if lora_info.get("decoder_full_precision", False):
+        # Preserve the training precision when reloading an adapter with a
+        # newly constructed (normally mixed FP16/FP32) SAM decoder.
+        decoder.float()
+        decoder.dtype = torch.float32
     for param in decoder.parameters():
         param.requires_grad_(False)
 

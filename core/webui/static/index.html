@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GenIA · Generation studio</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/">GenIA<span class="brand-dot" aria-hidden="true">●</span></a><span class="top-label">GENERATION STUDIO</span><span id="connection" class="connection">Connecting…</span></header>
+  <main class="workspace">
+    <aside>
+      <div class="section-label">01 / CREATE</div>
+      <h1>From image<br>to object.</h1>
+      <p class="intro">Give your image another dimension.</p>
+      <form id="upload-form">
+        <label class="dropzone" id="dropzone">
+          <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" required>
+          <img id="upload-preview" alt="Selected image" hidden>
+          <span id="drop-hint"><span class="upload-icon">↥</span><strong>Drop an image here</strong><span>or click to browse</span><small>PNG, JPG, WebP · up to 24 MP</small></span>
+        </label>
+        <div id="filename" class="file-label">Single-image reconstruction</div>
+        <details class="options"><summary>Generation options</summary>
+          <label class="field">Seed<input name="seed" type="number" value="42" min="0" max="4294967295" required></label>
+          <label class="field">Foreground mask <span>optional</span><input id="mask" name="mask" type="file" accept="image/png,image/jpeg,image/webp"></label>
+          <p class="help">White marks the object; black marks the background. Without a mask, transparency or automatic background removal is used.</p>
+        </details>
+        <button type="submit" id="submit" class="primary">Add to queue <span>↗</span></button>
+        <p class="help">Jobs run one at a time. You can close this tab while the server keeps working.</p>
+      </form>
+      <section class="queue-section" aria-labelledby="queue-heading"><div class="section-heading"><h2 id="queue-heading">Queue</h2><span id="queue-count" class="count">0</span></div><div id="queue"></div></section>
+    </aside>
+    <section class="gallery-section" aria-labelledby="gallery-heading">
+      <div class="gallery-header"><div><div class="section-label">02 / COLLECTION</div><h2 id="gallery-heading">Your generations<span id="total" class="total">0</span></h2></div><span class="gallery-note">Saved locally. Ready to explore.</span></div>
+      <div id="empty" class="empty"><div class="empty-object">◇</div><h3>A new dimension awaits.</h3><p>Upload your first image. Finished objects and<br>their previews will appear here.</p></div>
+      <div id="history" class="gallery"></div>
+      <button id="more" class="secondary more" hidden>Load earlier generations</button>
+    </section>
+  </main>
+  <div id="notice" class="notice" role="alert" hidden></div>
+</body>
+</html>

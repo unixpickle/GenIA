@@ -2,11 +2,20 @@
 
 # Third-party components
 
-This repository includes third-party code as git submodules.
+This repository includes third-party code as git submodules and as local source
+under `vendor/` for the macOS port.
 Each keeps its own licence; nothing here is relicensed by this project's `LICENSE`
 (CC BY-NC 4.0, noncommercial). **Check this table before any commercial use.**
 
 ## Included in this repository
+
+The macOS distribution packages the local model implementations and operator
+replacements described in [vendor/README.md](vendor/README.md). That inventory
+records each source revision and its retained licence under `vendor/licenses/`;
+the licence files also ship in the wheel. It includes SAM 3D Objects, MapAnything,
+MoGe/DINOv2, ActionMesh/TripoSG, RMBG, UniCeption, LPIPS, PyTorch3D, utils3d,
+and the rendering/geometry compatibility packages. The git submodules below
+remain part of the original CUDA installation workflow.
 
 | Path | Upstream | Licence |
 |---|---|---|
@@ -23,12 +32,15 @@ SAM License).
 
 ## Installed dependencies
 
-Installed by `install.sh`, not redistributed here; each under its own licence, e.g.
+The original `install.sh` installs external packages under their own licences, e.g.
 [MoGe](https://github.com/microsoft/MoGe) (MIT),
 [gsplat](https://github.com/nerfstudio-project/gsplat) (Apache-2.0),
 [PyTorch3D](https://github.com/facebookresearch/pytorch3d) (BSD),
 [nvdiffrast](https://github.com/NVlabs/nvdiffrast) (NVIDIA Source Code License,
 non-commercial).
+The macOS port instead redistributes the relevant source or local replacement
+operators for these components, as recorded in the linked vendor inventory.
+Other dependencies are installed from the pinned `requirements-macos.txt`.
 
 ## Model weights
 
@@ -39,7 +51,9 @@ fetched by ActionMesh carry their own terms.
 
 ## Demo inputs
 
-Every scene under `demo/data/` has a `LICENSE.md` with its source and terms.
+The original scenes under `demo/data/` have a `LICENSE.md` with their source and
+terms. The generated macOS test image under `image/generated_elephant/` records
+its image-generation prompt and asset provenance in `generation.json`.
 
 | Scene | Source | Licence |
 |---|---|---|

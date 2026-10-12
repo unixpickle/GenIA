@@ -149,7 +149,12 @@ class Pipeline:
                 cfg, state, sequence, inference, pipeline_obj, evaluator, device,
                 config_override=cfg.appearance_init_2, block_label="APPEARANCE_INIT_2")
         elif block_name == "finetune":
-            run_finetuning(cfg, state, sequence, pipeline_obj, evaluator, device)
+            from contextlib import nullcontext
+            from genia.core.utils.model_residency import offload_sampling_models
+            residency = (offload_sampling_models(pipeline_obj, device)
+                         if cfg.finetuning.enabled else nullcontext())
+            with residency:
+                run_finetuning(cfg, state, sequence, pipeline_obj, evaluator, device)
         elif block_name == "global_pose_refine_2":
             run_global_refine(
                 cfg, state, sequence, pipeline_obj, evaluator, device,

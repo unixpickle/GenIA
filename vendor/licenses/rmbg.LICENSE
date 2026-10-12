@@ -1,0 +1,10 @@
+BRIA AI RMBG 1.4
+
+Source: https://huggingface.co/briaai/RMBG-1.4/tree/2ceba5a5efaec153162aedea169f76caf9b46cf8
+
+The upstream model card identifies this model as source-available for
+non-commercial use under bria-rmbg-1.4. Commercial use requires a separate
+agreement with BRIA. These files retain those terms, not GenIA's licence.
+
+Upstream licence link: https://bria.ai/bria-huggingface-model-license-agreement/
+The original model card is preserved in rmbg.MODEL_CARD.md.

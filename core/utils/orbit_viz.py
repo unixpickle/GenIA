@@ -193,10 +193,11 @@ def _cli_args(cfg, device) -> argparse.Namespace:
     """
     from genia.core.utils import render_final_results as rfr
 
+    from genia.core.device import get_device
     out = cfg.output
     return rfr.build_parser().parse_args([
         "--fps", str(int(out.viz_orbit_fps)),
-        "--device", str(device) if device is not None else "cuda",
+        "--device", str(get_device(device)),
         "-O", f"orbit.n_frames={int(out.viz_orbit_frames)}",
         "-O", f"orbit.slowmo={int(out.viz_orbit_slowmo)}",
         "-O", f"orbit.up={out.viz_orbit_up}",

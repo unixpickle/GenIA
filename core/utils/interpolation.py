@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+from genia.core.device import get_device
 from scipy.spatial.transform import Rotation, Slerp
 
 
@@ -603,7 +604,7 @@ def compute_object_tracks(
 
             # Create a minimal object with get_xyz for _sample_canonical_points
             class _FakeGS:
-                get_xyz = voxel_xyz.cuda()
+                get_xyz = voxel_xyz.to(get_device())
             device = _FakeGS.get_xyz.device
             canonical_pts = _sample_canonical_points(_FakeGS(), num_points)
         elif canonical_mesh_verts and obj_idx in canonical_mesh_verts:
@@ -612,7 +613,7 @@ def compute_object_tracks(
             # and voxel anchors win when present; the per-frame warp block below
             # fires on these anchors exactly as it does for gaussian anchors.
             mesh_v = canonical_mesh_verts[obj_idx]
-            mesh_v = mesh_v.cuda() if not mesh_v.is_cuda else mesh_v
+            mesh_v = mesh_v.to(get_device())
 
             class _FakeGS:
                 get_xyz = mesh_v
@@ -805,7 +806,7 @@ def render_canonical_frames_to_numpy(
         transform_scene_to_r3_convention,
         transform_scene_to_world,
     )
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import render_gaussians_to_image
     from genia.core.utils.deformation import _lookup_per_frame_deformation, warp_gaussians_high_res
 
@@ -820,9 +821,9 @@ def render_canonical_frames_to_numpy(
             if obj_idx not in interpolated_poses or fi not in interpolated_poses[obj_idx]:
                 continue
             pose = interpolated_poses[obj_idx][fi]
-            rot = pose["rotation"].cuda()
-            trans = pose["translation"].cuda()
-            sc = pose["scale"].cuda()
+            rot = pose["rotation"].to(canonical_gaussians[obj_idx].get_xyz.device)
+            trans = pose["translation"].to(canonical_gaussians[obj_idx].get_xyz.device)
+            sc = pose["scale"].to(canonical_gaussians[obj_idx].get_xyz.device)
 
             gs_canon = canonical_gaussians[obj_idx]
             means_override = quats_override = None
@@ -854,9 +855,9 @@ def render_canonical_frames_to_numpy(
                 rots=rots, opacities=opacities,
             )
             if "dc_offset" in pose:
-                gs._features_dc = gs._features_dc + pose["dc_offset"].cuda()
+                gs._features_dc = gs._features_dc + pose["dc_offset"].to(canonical_gaussians[obj_idx].get_xyz.device)
             if "sh_rest" in pose:
-                sh = pose["sh_rest"].cuda()
+                sh = pose["sh_rest"].to(canonical_gaussians[obj_idx].get_xyz.device)
                 gs._features_rest = sh
                 degree = int((sh.shape[1] + 1) ** 0.5) - 1
                 gs.sh_degree = degree
@@ -1005,7 +1006,7 @@ def render_interpolated_sequence(
     from PIL import Image
 
     from .gaussian import create_gaussians_object, join_gaussians, transform_scene_to_r3_convention, transform_scene_to_world
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import render_gaussians_to_image
     from genia.core.utils.deformation import _lookup_per_frame_deformation, warp_gaussians_high_res
 
@@ -1033,9 +1034,9 @@ def render_interpolated_sequence(
             if obj_idx not in interpolated_poses:
                 continue
             pose = interpolated_poses[obj_idx][fi]
-            rot = pose["rotation"].cuda()
-            trans = pose["translation"].cuda()
-            sc = pose["scale"].cuda()
+            rot = pose["rotation"].to(canonical_gaussians[obj_idx].get_xyz.device)
+            trans = pose["translation"].to(canonical_gaussians[obj_idx].get_xyz.device)
+            sc = pose["scale"].to(canonical_gaussians[obj_idx].get_xyz.device)
 
             # Per-canonical-mesh-vertex deformation warp.
             # Falls through to static-canonical when not keyed for (obj, frame).
@@ -1071,11 +1072,11 @@ def render_interpolated_sequence(
             )
             # Apply per-frame DC offset (bake into base color)
             if "dc_offset" in pose:
-                dc = pose["dc_offset"].cuda()
+                dc = pose["dc_offset"].to(canonical_gaussians[obj_idx].get_xyz.device)
                 gs._features_dc = gs._features_dc + dc
             # Override SH rest with interpolated per-frame SH if available
             if "sh_rest" in pose:
-                sh = pose["sh_rest"].cuda()
+                sh = pose["sh_rest"].to(canonical_gaussians[obj_idx].get_xyz.device)
                 gs._features_rest = sh
                 degree = int((sh.shape[1] + 1) ** 0.5) - 1
                 gs.sh_degree = degree
@@ -1180,7 +1181,7 @@ def save_canonical_renders_perframe(
         transform_scene_to_r3_convention,
         transform_scene_to_world,
     )
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import render_gaussians_to_image
     from genia.core.utils.deformation import _lookup_per_frame_deformation, warp_gaussians_high_res
 
@@ -1203,9 +1204,9 @@ def save_canonical_renders_perframe(
             if obj_idx not in interpolated_poses or fi not in interpolated_poses[obj_idx]:
                 continue
             pose = interpolated_poses[obj_idx][fi]
-            rot = pose["rotation"].cuda()
-            trans = pose["translation"].cuda()
-            sc = pose["scale"].cuda()
+            rot = pose["rotation"].to(canonical_gaussians[obj_idx].get_xyz.device)
+            trans = pose["translation"].to(canonical_gaussians[obj_idx].get_xyz.device)
+            sc = pose["scale"].to(canonical_gaussians[obj_idx].get_xyz.device)
 
             # Per-canonical-mesh-vertex deformation warp.
             # Falls through to static-canonical when the field isn't keyed
@@ -1241,9 +1242,9 @@ def save_canonical_renders_perframe(
                 rots=rots, opacities=opacities,
             )
             if "dc_offset" in pose:
-                gs._features_dc = gs._features_dc + pose["dc_offset"].cuda()
+                gs._features_dc = gs._features_dc + pose["dc_offset"].to(canonical_gaussians[obj_idx].get_xyz.device)
             if "sh_rest" in pose:
-                sh = pose["sh_rest"].cuda()
+                sh = pose["sh_rest"].to(canonical_gaussians[obj_idx].get_xyz.device)
                 gs._features_rest = sh
                 degree = int((sh.shape[1] + 1) ** 0.5) - 1
                 gs.sh_degree = degree
@@ -1337,7 +1338,7 @@ def _render_perframe_scene_rgb(
         transform_scene_to_r3_convention,
         transform_scene_to_world,
     )
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import render_gaussians_to_image
 
     object_gaussians = []
@@ -1347,9 +1348,9 @@ def _render_perframe_scene_rgb(
         if fi not in pose_lookup.get(obj_idx, {}):
             continue
         di = pose_lookup[obj_idx][fi]
-        rot = di["rotation"].cuda()
-        trans = di["translation"].cuda()
-        sc = di["scale"].cuda()
+        rot = di["rotation"].to(perframe_gaussians[obj_idx][fi].get_xyz.device)
+        trans = di["translation"].to(perframe_gaussians[obj_idx][fi].get_xyz.device)
+        sc = di["scale"].to(perframe_gaussians[obj_idx][fi].get_xyz.device)
         xyz, rots, scs, opacities, features = apply_pose_to_gaussian(
             perframe_gaussians[obj_idx][fi], rot, trans, sc
         )
@@ -1541,7 +1542,7 @@ def compute_pose_axes(
     local_axes = torch.eye(3) * axis_length  # (3, 3)
 
     for obj_idx, poses_dict in interpolated_poses.items():
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = get_device()
 
         rots_list, trans_list, sc_list = [], [], []
         for fi in all_frame_indices:

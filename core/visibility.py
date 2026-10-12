@@ -253,7 +253,8 @@ def _rasterize_scene(
     face_obj = np.concatenate(all_face_obj, axis=0)
     face_vox = np.concatenate(all_face_vox, axis=0)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    from genia.core.device import get_device
+    device = get_device()
     fx, fy = float(K[0, 0]), float(K[1, 1])
     cx, cy = float(K[0, 2]), float(K[1, 2])
 

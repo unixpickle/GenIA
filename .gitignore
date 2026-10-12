@@ -4,6 +4,11 @@ __pycache__
 *.pyc
 .ruff_cache/
 .vscode
+.venv/
+.env.macos
+.pytest_cache/
+build/
+dist/
 *.egg-info/
 *.log
 logs/

@@ -1,0 +1,200 @@
+{
+  "encoder_config": {
+    "data_norm_type": "dinov2",
+    "encoder_str": "dinov2",
+    "gradient_checkpointing": false,
+    "keep_first_n_layers": 2,
+    "name": "dinov2_giant_24_layers",
+    "norm_returned_features": false,
+    "size": "small",
+    "torch_hub_force_reload": false,
+    "uses_torch_hub": true,
+    "with_registers": false
+  },
+  "geometric_input_config": {
+    "cam_prob": 1.0,
+    "cam_rot_encoder_config": {
+      "enc_embed_dim": 1536,
+      "encoder_str": "global_rep_encoder",
+      "in_chans": 4,
+      "name": "cam_rot_quats_encoder"
+    },
+    "cam_trans_encoder_config": {
+      "enc_embed_dim": 1536,
+      "encoder_str": "global_rep_encoder",
+      "in_chans": 3,
+      "name": "cam_trans_encoder"
+    },
+    "depth_encoder_config": {
+      "apply_pe": false,
+      "enc_embed_dim": 1536,
+      "encoder_str": "dense_rep_encoder",
+      "in_chans": 1,
+      "name": "depth_encoder",
+      "patch_size": 14
+    },
+    "depth_prob": 1.0,
+    "depth_scale_norm_all_prob": 0.0,
+    "dropout_prob": 0.0,
+    "overall_prob": 1.0,
+    "pose_scale_norm_all_prob": 0.0,
+    "ray_dirs_encoder_config": {
+      "apply_pe": false,
+      "enc_embed_dim": 1536,
+      "encoder_str": "dense_rep_encoder",
+      "in_chans": 3,
+      "name": "ray_dirs_encoder",
+      "patch_size": 14
+    },
+    "ray_dirs_prob": 1.0,
+    "scale_encoder_config": {
+      "enc_embed_dim": 1536,
+      "encoder_str": "global_rep_encoder",
+      "in_chans": 1,
+      "name": "scale_encoder"
+    },
+    "sparse_depth_prob": 0.0,
+    "sparsification_removal_percent": 0.9
+  },
+  "info_sharing_config": {
+    "custom_positional_encoding": null,
+    "model_return_type": "intermediate_features",
+    "model_type": "alternating_attention",
+    "module_args": {
+      "custom_positional_encoding": null,
+      "depth": 4,
+      "dim": 64,
+      "distinguish_ref_and_non_ref_views": true,
+      "gradient_checkpointing": false,
+      "indices": [
+        1,
+        2
+      ],
+      "init_values": 1e-05,
+      "input_embed_dim": 1536,
+      "mlp_layer": "dummy",
+      "mlp_ratio": 2,
+      "name": "aat_16_layers_dinov2_vitg_init",
+      "norm_intermediate": true,
+      "num_heads": 4,
+      "pretrained_checkpoint_path": null,
+      "qk_norm": false,
+      "qkv_bias": true,
+      "size": "16_layers"
+    }
+  },
+  "info_sharing_mlp_layer_str": "swiglufused",
+  "load_specific_pretrained_submodules": false,
+  "name": "mapanything",
+  "pred_head_config": {
+    "adaptor_config": {
+      "dense_pred_init_dict": {
+        "confidence_type": "exp",
+        "confidence_vmax": Infinity,
+        "confidence_vmin": 1,
+        "depth_mode": "exp",
+        "depth_vmax": Infinity,
+        "depth_vmin": 0,
+        "name": "raydirs+depth+pose+confidence+mask+scale",
+        "ray_directions_clamp_min_of_z_dir": false,
+        "ray_directions_mode": "linear",
+        "ray_directions_normalize_to_unit_image_plane": false,
+        "ray_directions_normalize_to_unit_sphere": true,
+        "ray_directions_vmax": Infinity,
+        "ray_directions_vmin": -Infinity,
+        "ray_directions_z_dir_min": -Infinity
+      },
+      "input_dim": 6,
+      "pose_pred_init_dict": {
+        "cam_trans_mode": "linear",
+        "cam_trans_vmax": Infinity,
+        "cam_trans_vmin": -Infinity,
+        "name": "raydirs+depth+pose+confidence+mask+scale",
+        "quaternions_mode": "linear",
+        "quaternions_normalize": true,
+        "quaternions_vmax": Infinity,
+        "quaternions_vmin": -Infinity
+      },
+      "scale_pred_init_dict": {
+        "mode": "exp",
+        "name": "raydirs+depth+pose+confidence+mask+scale",
+        "vmax": Infinity,
+        "vmin": 1e-08
+      },
+      "scene_rep_dim": 4,
+      "scene_rep_type": "raydirs+depth+pose",
+      "type": "raydirs+depth+pose+confidence+mask"
+    },
+    "adaptor_type": "raydirs+depth+pose+confidence+mask",
+    "dpt_adaptor": {
+      "confidence_type": "exp",
+      "confidence_vmax": Infinity,
+      "confidence_vmin": 1,
+      "depth_mode": "exp",
+      "depth_vmax": Infinity,
+      "depth_vmin": 0,
+      "name": "raydirs+depth+pose+confidence+mask+scale",
+      "ray_directions_clamp_min_of_z_dir": false,
+      "ray_directions_mode": "linear",
+      "ray_directions_normalize_to_unit_image_plane": false,
+      "ray_directions_normalize_to_unit_sphere": true,
+      "ray_directions_vmax": Infinity,
+      "ray_directions_vmin": -Infinity,
+      "ray_directions_z_dir_min": -Infinity
+    },
+    "feature_head": {
+      "checkpoint_gradient": false,
+      "feature_dim": 32,
+      "hooks": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "input_feature_dims": [
+        1536,
+        1536,
+        1536,
+        1536
+      ],
+      "patch_size": 14
+    },
+    "gradient_checkpointing": false,
+    "pose_adaptor": {
+      "cam_trans_mode": "linear",
+      "cam_trans_vmax": Infinity,
+      "cam_trans_vmin": -Infinity,
+      "name": "raydirs+depth+pose+confidence+mask+scale",
+      "quaternions_mode": "linear",
+      "quaternions_normalize": true,
+      "quaternions_vmax": Infinity,
+      "quaternions_vmin": -Infinity
+    },
+    "pose_head": {
+      "input_feature_dim": 1536,
+      "num_resconv_block": 2,
+      "patch_size": 14,
+      "rot_representation_dim": 4
+    },
+    "regressor_head": {
+      "checkpoint_gradient": false,
+      "input_feature_dim": 256,
+      "output_dim": 6
+    },
+    "scale_adaptor": {
+      "mode": "exp",
+      "name": "raydirs+depth+pose+confidence+mask+scale",
+      "vmax": Infinity,
+      "vmin": 1e-08
+    },
+    "scale_head": {
+      "input_feature_dim": 1536,
+      "output_dim": 1
+    },
+    "type": "dpt+pose"
+  },
+  "pretrained_checkpoint_path": null,
+  "specific_pretrained_submodules": [],
+  "torch_hub_force_reload": false,
+  "use_register_tokens_from_encoder": true
+}

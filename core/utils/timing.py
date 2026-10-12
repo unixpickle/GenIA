@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .visualization import save_figure
+from genia.core.device import get_device, synchronize
 
 
 @dataclass
@@ -79,7 +80,7 @@ class PipelineTimer:
         # ... more core computation ...
         timer.end_block("appearance_init")
 
-    ``torch.cuda.synchronize()`` is called at every timing boundary so
+    The selected accelerator is synchronized at every timing boundary so
     that GPU-bound work is captured accurately.
     """
 
@@ -100,6 +101,9 @@ class PipelineTimer:
         if name not in self._blocks:
             self._blocks[name] = BlockTiming()
         self._blocks[name].status = "ran"
+        # PyTorch 2.7 exposes current MPS allocations, but no peak counter.
+        # Keep unavailable peaks distinct from a measured zero.
+        self._blocks[name].peak_unmeasured = get_device().type == "mps"
         self._blocks[name].baseline_alloc_bytes = _allocated_memory()
         _reset_peak_memory()
         self._block_start = time.perf_counter()
@@ -235,7 +239,8 @@ class PipelineTimer:
                 "peak_alloc_mb": (None if bt.peak_unmeasured
                                   else round(bt.peak_alloc / 1024**2, 1)),
                 "baseline_alloc_mb": round(bt.baseline_alloc_bytes / 1024**2, 1),
-                "peak_reserved_mb": round(bt.peak_reserved_bytes / 1024**2, 1),
+                "peak_reserved_mb": (None if bt.peak_unmeasured
+                                     else round(bt.peak_reserved_bytes / 1024**2, 1)),
             }
         return result
 
@@ -330,9 +335,8 @@ def _cuda():
 
 
 def _sync_cuda() -> None:
-    """Synchronize CUDA (if available) so GPU work is captured by wall-clock."""
-    if (c := _cuda()) is not None:
-        c.synchronize()
+    """Synchronize the selected CUDA/Metal device (legacy helper name)."""
+    synchronize()
 
 
 def _reset_peak_memory() -> None:
@@ -350,7 +354,10 @@ def _reset_peak_memory() -> None:
 
 
 def _allocated_memory() -> float:
-    """CUDA bytes allocated RIGHT NOW (0 if no GPU) -- the level, not the peak."""
+    """Accelerator bytes allocated right now (not a peak; zero on CPU)."""
+    if get_device().type == "mps":
+        import torch
+        return float(torch.mps.current_allocated_memory())
     return float(c.memory_allocated()) if (c := _cuda()) is not None else 0.0
 
 
@@ -431,8 +438,8 @@ def plot_pipeline_timing(
     names = [name for name, _ in ran_blocks]
     core_times = [bt.core_seconds for _, bt in ran_blocks]
     excluded_times = [bt.excluded_seconds for _, bt in ran_blocks]
-    peak_alloc_gb = [bt.peak_alloc_bytes / 1024**3 for _, bt in ran_blocks]
-    peak_reserved_gb = [bt.peak_reserved_bytes / 1024**3 for _, bt in ran_blocks]
+    peak_alloc_gb = [0.0 if bt.peak_unmeasured else bt.peak_alloc / 1024**3 for _, bt in ran_blocks]
+    peak_reserved_gb = [0.0 if bt.peak_unmeasured else bt.peak_reserved_bytes / 1024**3 for _, bt in ran_blocks]
     y_pos = list(range(len(names)))
 
     # ── Two panels sharing block names: core time | peak CUDA memory ──
@@ -459,16 +466,19 @@ def plot_pipeline_timing(
               alpha=0.7, label="Reserved")
     ax_m.barh(y_pos, peak_alloc_gb, color="#4CAF50", edgecolor="white",
               label="Allocated")
-    ax_m.set_xlabel("Peak CUDA memory (GB)")
+    ax_m.set_xlabel("Peak GPU memory (GB)")
     ax_m.legend(loc="lower right")
     for i, gb in enumerate(peak_alloc_gb):
-        ax_m.text(max(peak_reserved_gb[i], gb) + 0.1, i, f"{gb:.1f}GB",
+        label = "not measured" if ran_blocks[i][1].peak_unmeasured else f"{gb:.1f}GB"
+        ax_m.text(max(peak_reserved_gb[i], gb) + 0.1, i, label,
                   va="center", fontsize=8)
 
+    peak_label = ("not measured" if timing_data['peak_alloc_mb'] is None
+                  else f"{timer.peak_alloc_bytes / 1024**3:.1f}GB")
     fig.suptitle(
         f"Pipeline Timing & Memory — {scene_name}    "
         f"(total core {timer.total_core_seconds:.1f}s · "
-        f"peak {timer.peak_alloc_bytes / 1024**3:.1f}GB)",
+        f"peak {peak_label})",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.96))

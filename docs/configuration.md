@@ -238,3 +238,26 @@ python -m genia.core ... dataset.downscale_factor=2    # half resolution
 ### Datasets without depth or cameras
 
 `image`, `dyncustom`, `mvcustom`, `davis_actionmesh` and `co3d` have no GT depth; use `processing=map_anything` (the default) or `processing=moge`. `processing=ground_truth` requires a dataset that ships depth and cameras.
+
+
+## Code organization
+
+The large optimization and exported-result rendering modules are split by responsibility:
+
+| Package | Responsibilities |
+| --- | --- |
+| [`core/utils/pose_refinement/`](../core/utils/pose_refinement/) | Loss primitives and aggregation, point-cloud alignment, posed rendering, pose decoding, and per-frame/composite/shared-world optimization strategies. `sequence.py` coordinates the strategies. |
+| [`core/finetune/`](../core/finetune/) | Decoder precision/checkpointing/LoRA setup, evaluation metrics, losses, visibility, pose corrections, and anchors. `object_optimizer.py` contains the single-object loop; `strategies.py` coordinates per-frame and canonical runs. |
+| [`core/utils/final_rendering/`](../core/utils/final_rendering/) | Run discovery, asset metadata and geometry, saved deformation, camera projection, tracks, image/video output, renderer registration, and individual view/orbit/world/contact-sheet renderers. `cli.py` retains the existing renderer CLI. |
+
+`core/finetuning.py`, `core/utils/refinement.py`, and
+`core/utils/render_final_results.py` remain compatibility entry points. Existing
+function imports and the result-rendering command continue to work. New internal
+callers import the responsible implementation module directly.
+
+The epoch frame sampler is shared in `core/utils/frame_sampling.py`. Renderer
+GPU dependencies belong to `final_rendering/runtime.py`; they remain deferred
+until rendering requires them. `final_rendering/builtins.py` loads the plugins in
+the established order into one registry, including when the renderer CLI is
+imported directly. Tests that replace a module's private state should patch its
+implementation module (for example, `pose_refinement.loss_terms._fused_ssim`).

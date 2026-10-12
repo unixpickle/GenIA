@@ -16,10 +16,13 @@ work offline. Files already cached are left alone.
   ``hf auth login``.
 - ActionMesh, which supplies the shapes of dynamic scenes, with TripoSG, DINOv2 and RMBG
   (~17 GB; ``core/actionmesh_video.py`` points ActionMesh at them).
-- map-anything and MoGe (depth), SAM 3D Objects' DINOv2 image encoder and the LPIPS backbone.
+- map-anything and MoGe (depth), and the LPIPS backbone. SAM checkpoints already
+  contain their DINOv2 image-encoder weights.
 """
 import argparse
+import os
 import sys
+from pathlib import Path
 
 from genia.core.paths import SAM3D_REPO
 
@@ -34,10 +37,8 @@ ACTIONMESH_WEIGHTS = [
 #: Hugging Face models loaded at run time: map-anything (depth + cameras) and MoGe (depth;
 #: also SAM 3D Objects' depth model).
 RUNTIME_HF = ["facebook/map-anything", "Ruicheng/moge-vitl"]
-#: SAM 3D Objects' image encoder, loaded through torch hub.
-DINO_HUB = ("facebookresearch/dinov2", "dinov2_vitl14_reg")
-#: LPIPS backbone: VGG for the perceptual loss.
-LPIPS_NETS = ["vgg"]
+#: LPIPS backbones: VGG for optimization, AlexNet for evaluation.
+LPIPS_NETS = ["vgg", "alex"]
 #: The files the loaders read: skips the TensorFlow / Flax / .bin copies some repos ship.
 HF_PATTERNS = ["*.json", "*.safetensors", "*.pt"]
 
@@ -50,34 +51,48 @@ def fetch_hf(repo, dry_run: bool, patterns=None) -> int:
     if dry_run:
         print(f"would fetch {repo} -> {constants.HF_HUB_CACHE}")
         return 0
-    try:
-        snapshot_download(repo_id=repo, allow_patterns=patterns)
-    except GatedRepoError:
-        print(f"{repo} is gated: accept the licence at https://huggingface.co/{repo}, "
-              "run `hf auth login`, and re-run this script.")
-        return 1
+    import time
+    from requests.exceptions import RequestException
+
+    for attempt in range(10):
+        try:
+            snapshot_download(repo_id=repo, allow_patterns=patterns, max_workers=1)
+            break
+        except GatedRepoError:
+            print(f"{repo} is gated: accept the licence at https://huggingface.co/{repo}, "
+                  "run `hf auth login`, and re-run this script.")
+            return 1
+        except RequestException as exc:
+            # HTTP streams can end prematurely on large checkpoint downloads.
+            # The hub resumes the existing .incomplete file on the next call.
+            response = getattr(exc, "response", None)
+            if response is not None and 400 <= response.status_code < 500 and response.status_code != 429:
+                raise
+            if attempt == 9:
+                raise
+            print(f"{repo}: transfer interrupted ({type(exc).__name__}); resuming, attempt {attempt + 2}/10", flush=True)
+            time.sleep(min(2 ** attempt, 10))
     print(f"ok: {repo}")
     return 0
 
 
 def fetch_torch_hub(dry_run: bool) -> None:
-    """Fill the torch hub cache: SAM 3D Objects' DINOv2 and the LPIPS backbone."""
+    """Fill the torch hub cache with LPIPS weights (SAM includes its own DINO)."""
     import torch
 
     if dry_run:
-        print(f"would fetch {DINO_HUB[1]} and LPIPS {'/'.join(LPIPS_NETS)} "
+        print(f"would fetch LPIPS {'/'.join(LPIPS_NETS)} "
               f"-> {torch.hub.get_dir()}")
         return
     import warnings
 
     import lpips
 
-    torch.hub.load(*DINO_HUB, source="github", verbose=False)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")  # torchvision's `pretrained` deprecation
         for net in LPIPS_NETS:
             lpips.LPIPS(net=net, verbose=False)
-    print(f"ok: {DINO_HUB[1]}, LPIPS {'/'.join(LPIPS_NETS)}")
+    print(f"ok: LPIPS {'/'.join(LPIPS_NETS)}")
 
 
 def main() -> int:
@@ -86,12 +101,22 @@ def main() -> int:
     ap.add_argument("--no-actionmesh", action="store_true",
                     help="skip the ActionMesh weights (only needed for dynamic scenes)")
     ap.add_argument("--dry-run", action="store_true", help="print what would be downloaded")
+    ap.add_argument("--cache-root", type=Path,
+                    help="store Hugging Face and torch caches under this directory (e.g. an external drive)")
     args = ap.parse_args()
+
+    # Set cache paths before importing either library, whose constants are
+    # initialized at import time. Preserve HF_HOME so existing login tokens work.
+    if args.cache_root is not None:
+        root = args.cache_root.expanduser().resolve()
+        os.environ["HF_HUB_CACHE"] = str(root / "huggingface" / "hub")
+        os.environ["HF_XET_CACHE"] = str(root / "huggingface" / "xet")
+        os.environ["TORCH_HOME"] = str(root / "torch")
 
     rc = fetch_hf(SAM3D_REPO, args.dry_run, ["checkpoints/*"])
     if not args.no_actionmesh:
         for repo, _ in ACTIONMESH_WEIGHTS:
-            rc = fetch_hf(repo, args.dry_run) or rc
+            rc = fetch_hf(repo, args.dry_run, HF_PATTERNS) or rc
     for repo in RUNTIME_HF:
         rc = fetch_hf(repo, args.dry_run, HF_PATTERNS) or rc
     fetch_torch_hub(args.dry_run)

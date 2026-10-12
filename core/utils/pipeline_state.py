@@ -814,21 +814,22 @@ def _serialize_value(v):
 def _deserialize_value(v):
     """Inverse of _serialize_value — reconstruct SparseTensor / Gaussian."""
     import torch
+    from genia.core.device import get_device
 
     from sam3d_objects.model.backbone.tdfy_dit.modules import sparse as sp
     from sam3d_objects.model.backbone.tdfy_dit.representations.gaussian import Gaussian
 
     if isinstance(v, dict):
         if _TAG_SPARSE_TENSOR in v:
-            return sp.SparseTensor(coords=v["coords"].cuda(), feats=v["feats"].cuda())
+            return sp.SparseTensor(coords=v["coords"].to(get_device()), feats=v["feats"].to(get_device()))
         if _TAG_GAUSSIAN in v:
             g = Gaussian(**v["init_params"])
             for attr in ("_xyz", "_features_dc", "_features_rest",
                          "_scaling", "_rotation", "_opacity"):
                 val = v[attr]
                 if val is not None:
-                    setattr(g, attr, val.cuda())
-            device = g._xyz.device if g._xyz is not None else torch.device("cuda")
+                    setattr(g, attr, val.to(get_device()))
+            device = g._xyz.device if g._xyz is not None else get_device()
             for name, val in (v.get("derived") or {}).items():
                 setattr(g, name, val.to(device) if torch.is_tensor(val) else val)
             # A cache without ``derived`` carries no record of the biases, and
@@ -858,10 +859,9 @@ def _deserialize_value(v):
 def gaussian_blob_to_render_tensors(blob: dict, *, device="cpu") -> dict:
     """A ``__Gaussian__`` blob -> ``{means, quats, scales, opacities, sh}``.
 
-    The activations :class:`Gaussian`'s getters apply, applied here WITHOUT building
-    one — its ``setup_functions`` hardcodes ``.cuda()`` on the biases, so a consumer
-    that only wants renderable tensors would otherwise need a GPU and
-    ``sam3d_objects``.  Lives beside :func:`_serialize_value` so it cannot drift from
+    Apply the activations from :class:`Gaussian`'s getters without constructing a
+    SAM representation. Readers that only need rendering tensors can avoid that
+    model dependency. Lives beside :func:`_serialize_value` so it cannot drift from
     the tag / ``derived`` contract that writes the blob.
 
     Written for the turntable, which reads its geometry from ``final/final.pt``

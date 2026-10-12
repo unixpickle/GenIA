@@ -605,12 +605,13 @@ class FinetuningConfig:
     micro-batches with backward() per micro-batch, freeing rendering+VGG
     graphs between micro-batches to reduce peak GPU memory."""
 
-    decoder_autocast_bf16: bool = True
-    """Run the in-loop SLAT->Gaussian decoder forward under
-    ``torch.autocast(bfloat16)``.  Decoder activations are held in bf16 for
-    the backward pass (~halves the dominant peak-memory term); decoder outputs
-    are cast back to fp32 so gsplat rendering, losses, and optimizer states
-    keep full precision.  Set False for a pure-fp32 decode."""
+    decoder_autocast_bf16: Optional[bool] = None
+    """Decoder training precision. None selects full FP32 on MPS and BF16
+    autocast elsewhere. True explicitly enables BF16 autocast; False disables
+    it and also converts the decoder to FP32 on MPS. Other devices retain their
+    loaded parameter precision. The Metal default avoids a reproduced
+    pretrained-decoder opacity collapse under mixed precision. Decoder outputs,
+    rendering, losses, and optimizer states remain FP32."""
 
     decoder_checkpoint: bool = False
     """Gradient-checkpoint the per-object SLAT->Gaussian decoder torso during
@@ -620,14 +621,14 @@ class FinetuningConfig:
     ``decoder_autocast_bf16``; checkpointing frees that retained graph.
     no_grad decodes (initial/best/export) are ~unaffected."""
 
-    decoder_checkpoint_min_voxels: int = 0
+    decoder_checkpoint_min_voxels: Optional[int] = None
     """Only checkpoint objects whose canonical SLAT has at least this many
-    voxels (tokens).  ``0`` (default) checkpoints every object when
-    ``decoder_checkpoint`` is on.  Checkpointing costs ~2x decode compute, so
-    small objects that already fit pay it for nothing — set a threshold (e.g.
-    30000) to restrict the slow path to the few giant objects that actually
-    OOM.  No effect when
-    ``decoder_checkpoint`` is off."""
+    voxels (tokens). ``None`` selects 0 on MPS and 30000 elsewhere;
+    ``0`` checkpoints every object when ``decoder_checkpoint`` is on.
+    Spatial-window occupancy makes voxel count an unreliable memory predictor
+    on Metal, so its default covers small objects too. Recomputing activations
+    trades compute for memory. An explicit integer limits checkpointing to
+    objects above that threshold. No effect when ``decoder_checkpoint`` is off."""
 
     # LoRA decoder adaptation
     lora_decoder: bool = True

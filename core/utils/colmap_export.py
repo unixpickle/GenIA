@@ -172,7 +172,7 @@ def _write_points3d_txt(path, xyz, rgb):
         f.write(f"# Number of points: {int(xyz.shape[0])}, mean track length: 0\n")
         for i in range(xyz.shape[0]):
             f.write(
-                f"{i + 1} {xyz[i, 0]!r} {xyz[i, 1]!r} {xyz[i, 2]!r} "
+                f"{i + 1} {float(xyz[i, 0])!r} {float(xyz[i, 1])!r} {float(xyz[i, 2])!r} "
                 f"{int(rgb[i, 0])} {int(rgb[i, 1])} {int(rgb[i, 2])} 0\n"
             )
 
@@ -289,7 +289,7 @@ def _oursactionbench_world_scene(cfg, state, frame):
         transform_scene_to_r3_convention, transform_scene_to_world,
     )
     from genia.core.utils.gt_data import load_actionbench_camera_fit
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from genia.core.utils.deformation import _lookup_per_frame_deformation, warp_gaussians_high_res
 
     cam = load_actionbench_camera_fit(cfg.dataset.scene_name, cfg.dataset.path)

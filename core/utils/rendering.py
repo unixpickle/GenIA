@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import numpy as np
 import torch
-from gsplat.rendering import rasterization
+from genia.core.ops.gaussian import rasterization
 
 from .visualization import draw_text_overlay, save_figure
 
@@ -155,7 +155,7 @@ def render_gaussian_params(
         c2w_torch = torch.from_numpy(c2w).float().to(device)
     else:
         c2w_torch = c2w.float().to(device)
-    w2c = torch.inverse(c2w_torch)
+    w2c = torch.inverse(c2w_torch.contiguous())
 
     if w2c.dim() == 2:
         w2c = w2c.unsqueeze(0)  # [1, 4, 4]
@@ -355,9 +355,9 @@ def render_gaussians_scene(
         - alpha: Alpha/opacity map, shape (H, W)
         - depth: Depth map, shape (H, W)
     """
-    # Ensure tensors are on CUDA
-    c2w = c2w.cuda() if not c2w.is_cuda else c2w
-    Ks = K.cuda() if not K.is_cuda else K
+    # Camera tensors follow the scene representation.
+    c2w = c2w.to(scene_gs.get_xyz.device)
+    Ks = K.to(scene_gs.get_xyz.device)
 
     if c2w.dim() == 2:
         c2w = c2w.unsqueeze(0)  # [1, 4, 4]
@@ -484,14 +484,14 @@ def render_gaussian_from_view(
     np.ndarray
         Rendered image, shape (H, W, 3), values in [0, 1].
     """
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = gaussian.get_xyz.device
 
     # Create camera-to-world matrix
     # PyTorch3D uses row-major convention
     w2c = torch.eye(4, device=device)
-    w2c[:3, :3] = R[0].T  # Transpose because PyTorch3D convention
-    w2c[:3, 3] = T[0]
-    c2w = torch.inverse(w2c)
+    w2c[:3, :3] = R[0].T.to(device)  # Transpose because PyTorch3D convention
+    w2c[:3, 3] = T[0].to(device)
+    c2w = torch.inverse(w2c.contiguous())
 
     # Create intrinsics (simple perspective)
     focal_length = image_size / (2 * np.tan(np.radians(fov) / 2))

@@ -33,7 +33,22 @@ per-frame deformation.
 
 ## 🛠️ Installation
 
-Requires conda, a CUDA 12.8 toolkit and an NVIDIA GPU.
+**Apple silicon macOS:** install [uv](https://docs.astral.sh/uv/), then:
+
+```bash
+bash install_macos.sh
+source .venv/bin/activate
+```
+
+Single-image and dynamic reconstruction have passed with pretrained local models,
+Metal operators, and mesh/Gaussian/video export. Multiview execution has passed;
+Metal fine-tuning now defaults to FP32 after a paired experiment corrected a
+mixed-precision pillow geometry regression.
+See the [macOS setup and validation guide](docs/macos-port.md)
+for model downloads, external-cache configuration, demo commands and test results.
+No recursive submodule checkout or CUDA toolkit is needed on macOS.
+
+**NVIDIA CUDA:** requires conda, a CUDA 12.8 toolkit and an NVIDIA GPU.
 
 ```bash
 git clone https://github.com/facebookresearch/GenIA && cd GenIA
@@ -42,6 +57,20 @@ python -m genia.core.download_weights   # all model weights (accept the SAM 3D O
 ```
 
 
+
+## Web UI
+
+After installing GenIA and its model weights:
+
+```bash
+uv pip install --python .venv/bin/python -e '.[webui]'
+.venv/bin/python -m genia.core.webui --cache-root /Volumes/MLData4/GenIA
+```
+
+Open **http://127.0.0.1:7860** to upload an image, queue reconstructions, cancel jobs,
+and browse saved previews. The inline 3D viewer downloads a mesh only when you click
+**Load 3D**. Queue state and results persist in `results/webui/`.
+See [the Web UI guide](docs/webui.md) for masks, worker behavior, and server options.
 
 ## 🚀 Demo
 

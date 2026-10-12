@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
+from genia.core.device import get_device
 
 if TYPE_CHECKING:
     from genia.core.utils.frame_key import FrameKey
@@ -195,7 +196,7 @@ def _compose_world_space_foreground(
         transform_scene_to_r3_convention,
         transform_scene_to_world,
     )
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from genia.core.utils.deformation import _lookup_per_frame_deformation, warp_gaussians_high_res
 
     canonical_gaussians = state.canonical_gaussians_with_fallback
@@ -218,9 +219,9 @@ def _compose_world_space_foreground(
         if gs_local is None:
             continue
 
-        rot = di["rotation"].cuda()
-        trans = di["translation"].cuda()
-        sc = di["scale"].cuda()
+        rot = di["rotation"].to(gs_local.get_xyz.device)
+        trans = di["translation"].to(gs_local.get_xyz.device)
+        sc = di["scale"].to(gs_local.get_xyz.device)
 
         means_override = quats_override = None
         resolved = (
@@ -450,7 +451,7 @@ def _export_gso_covisibility_masks(
         print("  co-visibility masks: skipped (no canonical SLAT)")
         return
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     H, W = sequence.H, sequence.W
     K = gso_blender_intrinsics(H=H, W=W)  # GT analytic Blender intrinsics
 
@@ -802,7 +803,7 @@ def _export_world_meshes(cfg, state, sequence, meshes_root, frames, pipeline_obj
 
     from genia.core.utils.deformation import _lookup_per_frame_deformation
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     dw = cfg.deformation_warp
     warp_kw = {"K": int(dw.knn_k), "eps": float(dw.knn_eps),
                "chunk_size": int(dw.knn_chunk_size)}
@@ -995,7 +996,7 @@ def export_coarse_shape_wireframe(cfg, state, sequence, block_dir, pipeline_obj)
     from .mesh_rendering import diffmc_mesh
     from genia.core.utils.slat_decode import decode_shape_to_occ
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
 
     canonical_by_obj = {}  # obj_idx -> (verts (V,3) canonical, edges (E,2) long)
     for obj_idx, raw in state.canonical_raw_modalities.items():
@@ -1308,7 +1309,7 @@ def _oab_covis_mask_for_frame(
     ``(mask (H,W) uint8, covis_fraction)`` or ``(None, None)`` when no per-frame
     GT mesh is keyed for this frame.
     """
-    device = torch.device("cuda")
+    device = get_device()
     world_verts, faces_list, voff = [], [], 0
     for obj_idx, _fk, di in frame_objs:
         pf = state.canonical_mesh_per_frame_verts.get(obj_idx)
@@ -1380,7 +1381,7 @@ def export_oursactionbench_eval_assets(
         transform_scene_to_world,
     )
     from genia.core.utils.gt_data import load_actionbench_camera_fit
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import render_gaussians_to_image
     from genia.core.utils.deformation import (
         _lookup_per_frame_deformation,
@@ -1465,7 +1466,7 @@ def export_oursactionbench_eval_assets(
     n_covis, covis_fracs = 0, []
     if gen_covis:
         import nvdiffrast.torch as dr
-        covis_glctx = dr.RasterizeCudaContext(device=torch.device("cuda"))
+        covis_glctx = dr.RasterizeCudaContext(device=get_device())
 
     # Per-object per-frame Gaussian PLYs are written by run_final
     # (dataset-agnostic) — deliberately not duplicated here.
@@ -1751,7 +1752,7 @@ def export_synth_nvs_assets(
         transform_scene_to_r3_convention,
         transform_scene_to_world,
     )
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import render_gaussians_to_image
     from genia.core.utils.deformation import _lookup_per_frame_deformation, warp_gaussians_high_res
 

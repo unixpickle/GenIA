@@ -22,6 +22,7 @@ import hydra  # noqa: E402
 from omegaconf import DictConfig, OmegaConf  # noqa: E402
 
 from genia.core.paths import RESULTS, SAM3D_OBJECTS_ROOT  # noqa: E402
+from genia.core.device import get_device  # noqa: E402
 
 # Ensure submodules are importable. APPEND, never insert(0): a ``sam3d_objects`` already
 # placed at the head of sys.path by the host process must keep winning.
@@ -70,18 +71,23 @@ def _save_timing_outputs(cfg, timer):
     plot_pipeline_timing(timer, final_output_dir, cfg.dataset.scene_name)
 
 
-def run(cfg: DictConfig) -> None:
+def run(cfg: DictConfig, on_stage=None) -> None:
     """One run of our method, end to end: output dir, PREPROCESSING, the blocks, FINAL.
 
     Separate from :func:`main` so a host that composes its own config can call it
     directly (e.g. a warm worker running it repeatedly in one process).
+
+    ``on_stage``, when supplied, receives a stage name before model loading,
+    preprocessing, each enabled block, and final export.
     """
     resolve_output_dir(cfg)
-    _run_blocks(cfg)
+    _run_blocks(cfg, on_stage=on_stage)
 
 
-def _run_blocks(cfg: DictConfig) -> None:
+def _run_blocks(cfg: DictConfig, on_stage=None) -> None:
     """PREPROCESSING, the block loop, FINAL."""
+    report = on_stage or (lambda stage: None)
+    report("loading_models")
     import torch
 
     from genia.core.evaluator import Evaluator
@@ -113,12 +119,13 @@ def _run_blocks(cfg: DictConfig) -> None:
     # The SAM3D backbone loads here, before PREPROCESSING.
     pipeline = Pipeline(cfg)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     evaluator = Evaluator(device)
 
     # PREPROCESSING (always-runs-first stage, like FINAL): build + process the
     # Sequence for every downstream consumer, and emit processing diagnostics to
     # the unprefixed preprocessing/ folder.
+    report("preprocessing")
     sequence = run_preprocessing(cfg, frame_indices, view_indices, asset_indices)
     pipeline.bind(sequence, evaluator, device)
 
@@ -157,6 +164,8 @@ def _run_blocks(cfg: DictConfig) -> None:
         if i < resume_idx:
             timer.mark_cached(block_name)
         else:
+            if getattr(block_config(cfg, block_name), "enabled", True):
+                report(block_name)
             timer.start_block(block_name)
             snap_ctx = (
                 memory_snapshot(os.path.join(
@@ -182,6 +191,7 @@ def _run_blocks(cfg: DictConfig) -> None:
             return
 
     # FINAL: Save poses, PLY, interpolated videos, tracks (always runs)
+    report("exporting")
     run_final(cfg, state, sequence, pipeline.pipeline_obj, evaluator, device, timer=timer)
 
     print(f"\n{'='*60}")

@@ -809,7 +809,8 @@ def render_slat_voxel_mesh(
         print("  PyTorch3D not available — skipping voxel mesh rendering")
         return
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    from genia.core.device import get_device
+    device = get_device()
     verts_t = torch.from_numpy(all_verts).float().to(device)
     faces_t = torch.from_numpy(all_faces).long().to(device)
     colors_t = torch.from_numpy(all_colors).float().to(device)
@@ -2053,7 +2054,8 @@ def render_voxel_mesh_in_camera(
         color_per_voxel = (voxel_coords_np + 0.5) / grid_size  # (N, 3)
     all_colors = np.repeat(color_per_voxel, 8, axis=0)  # (N*8, 3)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    from genia.core.device import get_device
+    device = get_device()
 
     # Verts are now in R3 camera space. Apply c2w to get world space,
     # then w2c to get rendering camera space.
@@ -2386,7 +2388,8 @@ def render_voxel_meshes_in_camera(
     all_faces = np.concatenate(all_faces_list, axis=0)
     all_colors = np.concatenate(all_colors_list, axis=0)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    from genia.core.device import get_device
+    device = get_device()
     fx, fy = K_matrix[0, 0], K_matrix[1, 1]
     cx, cy = K_matrix[0, 2], K_matrix[1, 2]
 

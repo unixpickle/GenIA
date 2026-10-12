@@ -12,7 +12,7 @@ from typing import Dict
 import torch
 
 # Import normalization constants from refinement.py
-from genia.core.utils.refinement import _ROTATION_6D_MEAN, _ROTATION_6D_STD
+from genia.core.utils.pose_refinement.decoding import _ROTATION_6D_MEAN, _ROTATION_6D_STD
 
 
 # =====================================================================

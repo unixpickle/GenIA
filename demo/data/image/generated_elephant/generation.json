@@ -1,0 +1,10 @@
+{
+  "tool": "built-in image_gen (imagegen skill)",
+  "date": "2026-10-10",
+  "prompt": "Use case: product-mockup\nAsset type: input image for testing a single-image 3D reconstruction pipeline\nPrimary request: a studio photograph of a small red ceramic toy elephant, a single solid object with four clearly visible stout legs, a raised curved trunk, and large ears.\nComposition: three-quarter view, full object centered with generous margin, square image.\nLighting: soft studio light, visible surface shape, no cast shadow.\nConstraints: transparent background, no other objects, no text, no logos, no watermark.",
+  "source": "source.png",
+  "rgb": "0000.png",
+  "mask": "0000_mask.png",
+  "mask_rule": "source alpha >= 128; foreground 255, background 0",
+  "rgb_rule": "source alpha composited over white"
+}

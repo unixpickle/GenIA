@@ -268,12 +268,10 @@ def render_appearance_ode_steps(
         Background colour (default white).
     """
     import torch
+    from genia.core.device import get_device
     from PIL import Image as PILImage, ImageDraw
 
     if not slat_snapshots or not tokens_list:
-        return
-    if not torch.cuda.is_available():
-        print("    [render_appearance_ode_steps] requires CUDA; skipping")
         return
 
     _has_mesh = canonical_mesh_verts is not None
@@ -292,14 +290,14 @@ def render_appearance_ode_steps(
         quaternion_invert, quaternion_multiply, quaternion_to_matrix,
     )
     from genia.core.utils.rendering import render_gaussian_params
-    from genia.core.utils.refinement import _render_frame_with_pose
+    from genia.core.utils.pose_refinement.rendering import _render_frame_with_pose
     from genia.core.utils.quaternion_ops import (
         p3d_to_r3_positions, p3d_to_r3_quaternions,
     )
     if use_warp:
         from genia.core.utils.deformation import warp_gaussians_high_res
 
-    device = torch.device("cuda")
+    device = get_device()
     n_frames = len(tokens_list)
     H, W = int(sequence.H), int(sequence.W)
 
@@ -1258,7 +1256,7 @@ def render_color_shift_debug(
         the finetuning rendering convention).
     """
     import torch
-    from genia.core.utils.refinement import _render_frame_with_pose
+    from genia.core.utils.pose_refinement.rendering import _render_frame_with_pose
 
     frame_indices = sorted(dc_per_frame.keys())
     if not frame_indices:

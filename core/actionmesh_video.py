@@ -4,7 +4,7 @@
 
 GenIA's dynamic shape injection (``gt_shapes_inversion=actionmesh``) reads per-frame
 meshes ``obj_NNN/mesh_NN.glb``; this script produces them from a clip with the
-ActionMesh model (``submodules/actionmesh``, with TripoSG from its ``third_party/``).
+local ActionMesh and TripoSG model implementations.
 It runs in the ``genia`` environment and reads the weights from the Hugging Face cache
 (``python -m genia.core.download_weights`` fetches them; otherwise they download on first use).
 
@@ -59,13 +59,9 @@ import numpy as np
 import torch
 from PIL import Image
 
-# --- make the clean (pinned) actionmesh package importable ----------------
-_REPO = Path(__file__).resolve().parents[1]   # the genia checkout
-_ACTIONMESH = _REPO / "submodules" / "actionmesh"
-_TRIPOSG = _ACTIONMESH / "third_party" / "TripoSG"
-for _p in (_ACTIONMESH, _TRIPOSG):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
+# The model implementations and configs ship in the GenIA distribution.
+from genia.core.device import get_device, synchronize
+from genia.core.paths import GENIA_ROOT
 
 from actionmesh.io.glb_export import create_animated_glb  # noqa: E402
 from actionmesh.io.mesh_io import save_deformation, save_meshes  # noqa: E402
@@ -495,7 +491,7 @@ def _load_white_bg_video(video_path: Path) -> list[Image.Image]:
 
 def _repo_rel(path: str | Path) -> str:
     """`path` as a string relative to the repo root (portable metadata paths)."""
-    return os.path.relpath(Path(path).resolve(), _REPO)
+    return os.path.relpath(Path(path).resolve(), GENIA_ROOT)
 
 
 # -- Timing -----------------------------------------------------------------
@@ -517,7 +513,7 @@ class RunTimer:
     ``total_core_seconds``, so a process that reuses one pipeline across jobs
     reports the same number as a cold CLI run.
 
-    ``torch.cuda.synchronize()`` at every boundary, or an async kernel launched
+    Synchronize the selected accelerator at every boundary, or an async kernel launched
     inside a phase is billed to whichever later phase happens to wait on it.
     """
 
@@ -558,8 +554,7 @@ class RunTimer:
 
     @staticmethod
     def _sync() -> None:
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        synchronize()
 
     @property
     def total_core_seconds(self) -> float:
@@ -577,10 +572,10 @@ class RunTimer:
             "per_object": {k: r3(v) for k, v in self.per_object.items()},
             "peak_alloc_mb": round(
                 torch.cuda.max_memory_allocated() / 1024**2, 1
-            ) if torch.cuda.is_available() else 0.0,
+            ) if torch.cuda.is_available() else (None if get_device().type == "mps" else 0.0),
             "peak_reserved_mb": round(
                 torch.cuda.max_memory_reserved() / 1024**2, 1
-            ) if torch.cuda.is_available() else 0.0,
+            ) if torch.cuda.is_available() else (None if get_device().type == "mps" else 0.0),
         }
 
 
@@ -634,27 +629,14 @@ def build_pipeline(fast: bool, low_ram: bool, dtype: str) -> ActionMeshPipeline:
         config_name = "actionmesh.yaml"
 
     torch_dtype = torch.bfloat16 if dtype == "bfloat16" else torch.float16
-    config_dir = _ACTIONMESH / "actionmesh" / "configs"
-    # Upstream reads its weights from ./pretrained_weights/<name>, downloading them there
-    # when missing. Read them from the Hugging Face cache instead, like every other model:
-    # skip its download, then repoint the folders it stored before any model loads.
-    from huggingface_hub import snapshot_download
-
-    from genia.core.download_weights import ACTIONMESH_WEIGHTS
-
-    weights = {name: snapshot_download(repo) for repo, name in ACTIONMESH_WEIGHTS}
-    actionmesh.pipeline.download_if_missing = lambda repo_id, local_dir: local_dir
+    config_dir = Path(actionmesh.pipeline.__file__).parent / "configs"
     pipeline: ActionMeshPipeline = ActionMeshPipeline(
         config_name=config_name,
         config_dir=str(config_dir),
         dtype=torch_dtype,
         lazy_loading=low_ram,
     )
-    for name, path in weights.items():  # _triposg_weights_dir, _dinov2_weights_dir, ...
-        setattr(pipeline, f"_{name.lower()}_weights_dir", path)
-    encoder = pipeline.cfg.model.image_encoder
-    encoder.pretrained_dino_feature_extractor = encoder.pretrained_dino_model = weights["dinov2"]
-    pipeline.to("cuda")
+    pipeline.to(get_device())
     return pipeline
 
 

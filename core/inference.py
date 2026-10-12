@@ -465,7 +465,7 @@ class Inference:
             ss_generator.reverse_fn.strength_pm = _s_pm_dict
 
         with torch.no_grad():
-            with torch.autocast(device_type="cuda", dtype=pipeline.shape_model_dtype):
+            with torch.autocast(device_type=pipeline.device.type, dtype=pipeline.shape_model_dtype):
                 # Build latent shapes with batch=N
                 latent_shape_dict = {
                     k: (N,) + (v.pos_emb.shape[0], v.input_layer.in_features)
@@ -896,7 +896,7 @@ class Inference:
             slat_generator.no_shortcut = True
         slat_generator.reverse_fn.strength = pipeline.slat_cfg_strength
 
-        with torch.autocast(device_type="cuda", dtype=pipeline.dtype):
+        with torch.autocast(device_type=pipeline.device.type, dtype=pipeline.dtype):
             with torch.no_grad():
                 # 5. Sub-batch condition embedding (DINOv2) to avoid OOM
                 _dino_hook = None
@@ -1325,7 +1325,7 @@ class Inference:
         slat_snapshots: list = []
 
         try:
-            with torch.autocast(device_type="cuda", dtype=pipeline.dtype):
+            with torch.autocast(device_type=pipeline.device.type, dtype=pipeline.dtype):
                 with torch.no_grad():
                     cond_embedded = _embed_slat_conditions(
                         pipeline, batched_input, N)      # (N, P, C)

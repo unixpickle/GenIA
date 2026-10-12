@@ -248,10 +248,12 @@ def load_and_process_depth(
         loaded_image = torch.from_numpy(loaded_image)
         loaded_image_rgb = loaded_image.permute(2, 0, 1).contiguous()[:3]
 
+        model = ModelCache.get().moge_model
+        device = next(model.parameters()).device
         with torch.no_grad():
-            with torch.autocast(device_type="cuda", dtype=torch.float16):
-                depth_output = ModelCache.get().moge_model.infer(
-                    loaded_image_rgb.to(torch.device("cuda")), force_projection=False
+            with torch.autocast(device_type=device.type, dtype=torch.float16):
+                depth_output = model.infer(
+                    loaded_image_rgb.to(device), force_projection=False
                 )
 
         depth_map_z = depth_output["depth"].cpu().numpy()

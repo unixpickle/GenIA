@@ -34,7 +34,7 @@ RESULTS = Path(os.environ.get("GENIA_RESULTS", GENIA_ROOT / "results"))
 #: Third-party code: git submodules (map-anything, ActionMesh, SAM 3D Objects).
 GENIA_SUBMODULES = GENIA_ROOT / "submodules"
 
-#: The SAM 3D Objects checkout (``sam3d_objects`` package, patched by install.sh with
-#: ``submodules/sam-3d-objects.patch``). APPEND it to ``sys.path``, never insert(0): an
+#: Local model source root (SAM includes the original GenIA patch and macOS changes).
+#: APPEND it to ``sys.path``, never insert(0): an
 #: already-importable ``sam3d_objects`` must keep winning.
-SAM3D_OBJECTS_ROOT = GENIA_SUBMODULES / "sam-3d-objects"
+SAM3D_OBJECTS_ROOT = GENIA_ROOT / "vendor"

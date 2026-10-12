@@ -7,9 +7,9 @@ token_lr: 0.0001
 optimize_tokens: true        # gate token optimization (false = freeze tokens)
 batch_size: 1                # frames per iteration (0 = all frames); 1-frame SGD noise regularises against overfit
 microbatch_size: 1           # 0 = disabled; micro-batch size for gradient accumulation
-decoder_autocast_bf16: true  # bf16 autocast on the in-loop decoder forward (outputs cast back to fp32); ~halves decoder-activation memory
-decoder_checkpoint: true     # gradient-checkpoint the in-loop decoder torso on very large objects (OOM guard)
-decoder_checkpoint_min_voxels: 30000  # only checkpoint objects with >= this many SLAT voxels (~2x decode cost, so small objects skip it); 30000 keeps FINETUNE under 40GB
+decoder_autocast_bf16: null  # automatic: full FP32 on MPS, BF16 autocast elsewhere; true explicitly enables mixed precision
+decoder_checkpoint: true     # gradient-checkpoint the in-loop decoder torso (activation-memory guard)
+decoder_checkpoint_min_voxels: null  # automatic: every object on MPS, 30000 voxels elsewhere; an integer overrides the threshold
 
 # LoRA decoder adaptation
 lora_decoder: true

@@ -1,16 +1,25 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
 import torch
-from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
-from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+from genia.core.ops.image_metrics import psnr, ssim
 
 
 class Evaluator:
     
     def __init__(self, device: torch.device):
-        self.psnr_metric = PeakSignalNoiseRatio(data_range=1.0).to(device)
-        self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
-        self.lpip_metric = LearnedPerceptualImagePatchSimilarity().to(device)
+        self.psnr_metric = psnr
+        self.ssim_metric = ssim
+        self.device = device
+        self._lpip_metric = None
+
+    @property
+    def lpip_metric(self):
+        # Avoid allocating/downloading the evaluation trunk until metrics are used.
+        if self._lpip_metric is None:
+            import lpips
+            self._lpip_metric = lpips.LPIPS(net="alex", verbose=False).to(self.device)
+            self._lpip_metric.eval().requires_grad_(False)
+        return self._lpip_metric
     
     def evaluate_frame(self, gt_frame: torch.Tensor, pred_frame: torch.Tensor):
         """
@@ -30,7 +39,9 @@ class Evaluator:
         
         psnr = self.psnr_metric(pred_frame, gt_frame)
         ssim = self.ssim_metric(pred_frame, gt_frame)
-        lpip = self.lpip_metric(pred_frame, gt_frame)
+        # TorchMetrics' original default is normalize=False, even for [0, 1]
+        # inputs. Preserve that convention and its mean reduction over the batch.
+        lpip = self.lpip_metric(pred_frame, gt_frame, normalize=False).mean()
 
         return {
             "psnr": psnr.item(),

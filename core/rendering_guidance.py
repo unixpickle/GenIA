@@ -17,10 +17,9 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
+from genia.core.ops.resize import interpolate
 
-from genia.core.utils.refinement import (
-    _compute_signed_distance_transform,
-)
+from genia.core.utils.pose_refinement.loss_terms import _compute_signed_distance_transform
 from genia.core.utils.deformation import warp_gaussians_high_res
 
 
@@ -186,11 +185,11 @@ def _prepare_frame_targets(
                 ch_last = img_t.dim() == 3 and img_t.shape[-1] in (3, 4)
                 if ch_last:
                     img_t = img_t.permute(2, 0, 1)[None]
-                    img_t = torch.nn.functional.interpolate(
+                    img_t = interpolate(
                         img_t, size=(H, W), mode="area"
                     )[0].permute(1, 2, 0).contiguous()
                 else:
-                    img_t = torch.nn.functional.interpolate(
+                    img_t = interpolate(
                         img_t[None] if img_t.dim() == 3 else img_t[None, None],
                         size=(H, W), mode="area",
                     ).squeeze(0)
@@ -354,17 +353,14 @@ def build_appearance_rendering_guidance_transform(
         composites GT onto the same colour for matched RGB / LPIPS.
     """
     from sam3d_objects.model.backbone.tdfy_dit.modules import sparse as sp
-    from genia.core.utils.refinement import (
-        _aggregate_frame_loss, _compute_frame_loss, _depth_l1_term,
-        _match_depth_grid,
-        _transform_object_to_r3,
-    )
+    from genia.core.utils.pose_refinement.aggregation import _aggregate_frame_loss
+    from genia.core.utils.pose_refinement.frame_loss import _compute_frame_loss
+    from genia.core.utils.pose_refinement.loss_terms import _depth_l1_term, _match_depth_grid
+    from genia.core.utils.pose_refinement.rendering import _transform_object_to_r3
     from genia.core.utils.slat_decode import _GAUSSIAN_FP_ATTRS, _cast_attrs_float32
-    from genia.core.finetuning import (
-        _detach_invisible_gaussians,
-        _flag_visible_by_depth,
-        _sample_random_bg_color,
-    )
+    from genia.core.finetune.anchors import _detach_invisible_gaussians
+    from genia.core.finetune.visibility import _flag_visible_by_depth
+    from genia.core.finetune.losses import _sample_random_bg_color
     from genia.core.utils.rendering import render_gaussian_params
 
     frame_targets = _prepare_frame_targets(
@@ -491,7 +487,7 @@ def build_appearance_rendering_guidance_transform(
         x1 = x1.requires_grad_(not monitor_only)
 
         grad_ctx = torch.enable_grad() if not monitor_only else torch.no_grad()
-        with grad_ctx, torch.amp.autocast("cuda", enabled=False):
+        with grad_ctx, torch.amp.autocast(torch.device(device).type, enabled=False):
             with torch.no_grad():
                 quat_all, trans_all, scale_all = pose_decoder()
             quat_all = quat_all.to(device)
@@ -553,7 +549,7 @@ def build_appearance_rendering_guidance_transform(
                 # bf16 decoder forward (activations stored in bf16 for the
                 # chunk backward), outputs cast back to fp32 below so the
                 # gsplat render + loss stay full-precision.
-                with torch.autocast("cuda", dtype=torch.bfloat16,
+                with torch.autocast(torch.device(device).type, dtype=torch.bfloat16,
                                     enabled=decoder_autocast_bf16):
                     gs_list = gs_decoder(slat)
                 gs_obj = gs_list[0] if isinstance(gs_list, list) else gs_list

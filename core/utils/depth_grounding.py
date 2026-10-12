@@ -61,9 +61,7 @@ def _depth_sample_mask(mask, pm_p3d, disc_threshold=0.0, erode_px=0):
     # `depth_discontinuity_threshold` means in the refinement losses.
     import torch
 
-    from genia.core.utils.refinement import (
-        _compute_depth_discontinuity_mask, _erode_bool_mask,
-    )
+    from genia.core.utils.pose_refinement.loss_terms import _compute_depth_discontinuity_mask, _erode_bool_mask
 
     # .clone() is load-bearing: as_tensor SHARES the numpy buffer, so the in-place
     # `&=` below would rewrite `valid` itself and take the empty-set fallback down

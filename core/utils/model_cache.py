@@ -13,8 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Optional
 
 import torch
-
-from genia.core.paths import GENIA_SUBMODULES
+from genia.core.device import get_device, empty_cache
 
 from .timing import exclude_model_load
 
@@ -59,7 +58,7 @@ class ModelCache:
             setattr(self, slot, None)
             freed = True
         if freed:
-            torch.cuda.empty_cache()
+            empty_cache()
 
     @classmethod
     def get(cls) -> "ModelCache":
@@ -80,11 +79,11 @@ class ModelCache:
 
     @staticmethod
     def _load_perceptual_model() -> "PerceptualLoss":
-        with exclude_model_load("VGG19 perceptual loss"):
+        with exclude_model_load("VGG16 LPIPS perceptual loss"):
             from .perceptual_loss import PerceptualLoss
 
             model = PerceptualLoss()
-            model = model.to(torch.device("cuda"))
+            model = model.to(get_device())
             model.eval()
             return model
 
@@ -144,23 +143,17 @@ class ModelCache:
         # config was read: a cache hit never gets here, so it never pays.
         self.release_reconstruction_models(keep="_map_anything_model")
 
-        import sys
-
-        map_anything_path = GENIA_SUBMODULES / "map-anything"
-        if str(map_anything_path) not in sys.path:
-            sys.path.insert(0, str(map_anything_path))
-
         try:
             from mapanything.models.mapanything import MapAnything
         except ImportError:
             raise ImportError(
                 "map-anything is required when processing.reconstruction_model='map_anything'. "
-                "Install it with: pip install -e submodules/map-anything"
+                "Install the local model code with: uv pip install -e ."
             )
 
         print(f"Loading map-anything model: {self._map_anything_model_id}")
-        model = MapAnything.from_pretrained(self._map_anything_model_id)
-        model = model.to(torch.device("cuda"))
+        model = MapAnything.from_pretrained(self._map_anything_model_id, encoder_pretrained=False)
+        model = model.to(get_device())
         model.eval()
         return model
 
@@ -187,4 +180,4 @@ class ModelCache:
 
         print(f"Loading MoGe model: {self._MOGE_MODEL_ID}")
         model = MoGeModel.from_pretrained(self._MOGE_MODEL_ID)
-        return model.to(torch.device("cuda")).eval()
+        return model.to(get_device()).eval()

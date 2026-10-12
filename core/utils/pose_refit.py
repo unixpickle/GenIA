@@ -374,7 +374,7 @@ def _build_frame_renderers(frames, sigma: float, device):
     to avoid -- and the splat path is the block default.
     """
     from genia.core.utils.gaussian import point_splat_gaussians
-    from genia.core.utils.refinement import make_posed_object_renderer
+    from genia.core.utils.pose_refinement.rendering import make_posed_object_renderer
 
     renderers, _built = [], {}
     for f in frames:
@@ -532,7 +532,7 @@ def _depth_grid_normals(depth, K_t, keep):
     pixel comes back as the ZERO vector, which the normal gate rejects on its own.
     """
     import torch
-    from genia.core.utils.refinement import _erode_bool_mask, depth_to_normals
+    from genia.core.utils.pose_refinement.loss_terms import _erode_bool_mask, depth_to_normals
 
     return depth_to_normals(torch.nan_to_num(depth), K_t,
                             mask=_erode_bool_mask(keep, 1))
@@ -569,7 +569,7 @@ def _knn1(A, B, k: int = 1):
     still runs in float64.
     """
     import torch
-    from pytorch3d.ops import knn_points
+    from genia.core.ops import knn_points
 
     out = knn_points(A.unsqueeze(0).to(torch.float32),
                      B.unsqueeze(0).to(torch.float32), K=k)
@@ -781,9 +781,7 @@ def _icp_delta_closed_form(frames, sigma: float, steps: int, device, *,
 
     from genia.core.utils.timing import get_timer
     from genia.core.utils.pose_params import natives_to_freeze
-    from genia.core.utils.refinement import (
-        rendered_surface_cloud, rendered_surface_keep,
-    )
+    from genia.core.utils.pose_refinement.chamfer import rendered_surface_cloud, rendered_surface_keep
 
     if shared_correction and not per_frame_deltas:
         # Unreachable from the dispatch, so it is a caller error rather than a mode.
@@ -1060,10 +1058,8 @@ def icp_frame_observation(sequence, obj_idx: int, fk, device, max_gt_points,
     """
     import torch
 
-    from genia.core.utils.refinement import (
-        _chamfer_gt_points_from_depth,
-        _prepare_frame_data_for_refinement,
-    )
+    from genia.core.utils.pose_refinement.chamfer import _chamfer_gt_points_from_depth
+    from genia.core.utils.pose_refinement.frame_loss import _prepare_frame_data_for_refinement
 
 
     data = _prepare_frame_data_for_refinement(sequence, fk, obj_idx)

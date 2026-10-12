@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
+from genia.core.device import get_device
 
 from pytorch3d.io import load_objs_as_meshes
 from pytorch3d.renderer import (
@@ -54,7 +55,7 @@ class PyTorch3DMeshRenderer:
 
     def __init__(self, device: torch.device = None):
         if device is None:
-            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            self.device = get_device()
         else:
             self.device = device
 
@@ -400,10 +401,11 @@ def render_depth_and_alpha(
 
     z_attr = verts_r3[:, 2:3].contiguous()
     depth, _ = dr.interpolate(z_attr[None], rast_out, faces_int32)
-    depth = dr.antialias(depth, rast_out, verts_clip[None], faces_int32)
-
     alpha = (rast_out[..., 3:4] > 0).float()
-    alpha = dr.antialias(alpha, rast_out, verts_clip[None], faces_int32)
+    # Coverage is shared by every channel; build edge topology once per render.
+    filtered = dr.antialias(torch.cat([depth, alpha], dim=-1),
+                            rast_out, verts_clip[None], faces_int32)
+    depth, alpha = filtered[..., :1], filtered[..., 1:]
 
     # nvdiffrast outputs OpenGL convention (row 0 = bottom); flip to
     # image convention (row 0 = top) to match GT depth/mask.
@@ -482,14 +484,12 @@ def render_rgba_and_depth(
         rgb = torch.where(rast_out[..., 3:] > 0, rgb, torch.zeros_like(rgb))
     else:
         rgb, _ = dr.interpolate(vert_rgb[None].contiguous(), rast_out, faces_int32)
-    rgb = dr.antialias(rgb, rast_out, verts_clip[None], faces_int32)
-
     z_attr = verts_r3[:, 2:3].contiguous()
     depth, _ = dr.interpolate(z_attr[None], rast_out, faces_int32)
-    depth = dr.antialias(depth, rast_out, verts_clip[None], faces_int32)
-
     alpha = (rast_out[..., 3:4] > 0).float()
-    alpha = dr.antialias(alpha, rast_out, verts_clip[None], faces_int32)
+    filtered = dr.antialias(torch.cat([rgb, alpha, depth], dim=-1),
+                            rast_out, verts_clip[None], faces_int32)
+    rgb, alpha, depth = filtered[..., :3], filtered[..., 3:4], filtered[..., 4:]
 
     # Y-flip to image convention (matches render_depth_and_alpha).
     return (

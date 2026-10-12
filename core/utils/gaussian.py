@@ -154,10 +154,10 @@ def create_gaussians_object(
     xyz_normalized = (xyz - xyz_min) / xyz_size
 
     # Create Gaussian model with computed AABB
-    gaussians = Gaussian(aabb=aabb, scaling_bias=0.0, opacity_bias=0.0)
+    gaussians = Gaussian(aabb=aabb, scaling_bias=0.0, opacity_bias=0.0, device=xyz.device)
 
-    # Move all tensors to CUDA
-    device = "cuda"
+    # Keep representation tensors together on the input device.
+    device = xyz.device
     xyz_normalized = xyz_normalized.to(device)
     features = features.to(device)
     scales = scales.to(device)
@@ -210,7 +210,7 @@ VOXEL_GRID_AABB = [-0.5, -0.5, -0.5, 1.0, 1.0, 1.0]
 def point_splat_gaussians(
     xyz: torch.Tensor,
     sigma: float,
-    device: "torch.device | str" = "cuda",
+    device: "torch.device | str | None" = None,
 ) -> "Optional[Gaussian]":
     """One isotropic, near-opaque, colourless Gaussian at each of ``xyz`` (N, 3).
 
@@ -225,6 +225,8 @@ def point_splat_gaussians(
     ``[-0.5, 0.5]`` box rather than derived from the points, which would be degenerate for
     a coplanar or single-point cloud.
     """
+    from genia.core.device import get_device
+    device = get_device(device)
     m = xyz.shape[0]
     if m == 0:
         return None
@@ -383,8 +385,9 @@ def create_gaussians_from_pointmap(
     opacities = torch.ones((xyz.shape[0], 1), dtype=torch.float32)
 
     # Create Gaussian model
+    from genia.core.device import get_device
     gaussians = create_gaussians_object(
-        xyz=xyz,
+        xyz=xyz.to(get_device()),
         features=features,
         scales=scales,
         rots=rots,

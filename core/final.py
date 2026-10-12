@@ -124,7 +124,8 @@ def _anchor_mesh_visibility(
         import nvdiffrast.torch as dr
         from genia.core.utils.interpolation import _quat_to_matrix
         from genia.core.utils.mesh_rendering import render_depth_and_alpha
-        dev = "cuda"
+        from genia.core.device import get_device
+        dev = get_device()
         glctx = dr.RasterizeCudaContext()
 
         def _np(a):

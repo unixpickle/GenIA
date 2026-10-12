@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from genia.core.utils.gt_data import _load_and_orient_mesh
+from genia.core.device import empty_cache
 
 logger = logging.getLogger(__name__)
 
@@ -255,8 +256,8 @@ def invert_decoder(
     for i in steps:
         optimizer.zero_grad()
         with torch.autocast(
-            "cuda", dtype=autocast_dtype,
-            enabled=autocast_dtype is not None and z.is_cuda,
+            z.device.type, dtype=autocast_dtype,
+            enabled=autocast_dtype is not None and z.device.type in ("cuda", "mps"),
         ):
             logits = decoder(z)
             # BCE in fp32 regardless: the loss is a mean over 262144 voxels,
@@ -370,14 +371,20 @@ def occupancies_to_shape_tokens(
                 show_progress=show_progress, autocast_dtype=autocast_dtype,
                 progress_desc=f"Shape inversion [{a}:{a + occ_c.shape[0]}/{B}]",
             )
-        except torch.cuda.OutOfMemoryError:
+        except RuntimeError as exc:
+            is_oom = isinstance(exc, torch.OutOfMemoryError) or (
+                occupancy.device.type == "mps" and
+                str(exc).startswith("MPS backend out of memory")
+            )
+            if not is_oom:
+                raise
             if cs == 1:
                 raise
             n_failed, cs = occ_c.shape[0], max(1, cs // 2)
             # Drop the failed slice's reference BEFORE reclaiming, or its
             # activations stay pinned and the retry OOMs at half the size too.
             del occ_c
-            torch.cuda.empty_cache()
+            empty_cache(occupancy.device)
             print(f"  [shape-inversion] OOM at chunk_size={n_failed}, "
                   f"retrying at {cs} (~1.0 GB activations/frame)")
             continue  # every remaining chunk shrinks too, not just this one
@@ -385,8 +392,8 @@ def occupancies_to_shape_tokens(
             ious.append(compute_iou_per_sample(decoder(z_c), occ_c))
         zs.append(z_c)
         a += occ_c.shape[0]
-        if occupancy.is_cuda:
-            torch.cuda.empty_cache()  # hand the peak back before the next chunk
+        if occupancy.device.type in ("cuda", "mps"):
+            empty_cache(occupancy.device)  # hand the peak back before the next chunk
 
     z = torch.cat(zs, dim=0)
     return latent_to_shape_tokens(z), torch.cat(ious).cpu().tolist()
@@ -400,7 +407,7 @@ def mesh_to_shape_tokens(
     prior_weight: float = 0.01,
     prior_target_var: float = 1.0,
     l2_weight: float = 0.0,
-    device: str = "cuda",
+    device: str | None = None,
     local_rotation = "identity",
     *,
     autocast_dtype: Optional[torch.dtype] = None,
@@ -422,6 +429,8 @@ def mesh_to_shape_tokens(
     shape_tokens : torch.Tensor, shape ``(4096, 8)``
     iou : float
     """
+    from genia.core.device import get_device
+    device = get_device(device)
     occupancy = voxelize_mesh(mesh_path, local_rotation=local_rotation).to(device)
     tokens, ious = occupancies_to_shape_tokens(
         occupancy, decoder, num_steps=num_steps, lr=lr,

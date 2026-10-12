@@ -110,7 +110,7 @@ class SAM3DState(PipelineState):
             If True (default), decode shape tokens to update SLAT coords.
         """
         import torch
-        from genia.core.utils.refinement import differentiable_pose_decode
+        from genia.core.utils.pose_refinement.decoding import differentiable_pose_decode
 
         self.canonical_raw_modalities[obj_idx] = raw_modalities
         ss = raw_modalities
@@ -257,7 +257,7 @@ class SAM3DState(PipelineState):
         Returns the number of frames successfully decoded.
         """
         import torch
-        from genia.core.utils.refinement import differentiable_pose_decode
+        from genia.core.utils.pose_refinement.decoding import differentiable_pose_decode
 
         if source == "perframe_raw_modalities":
             pf_raw_obj = self.perframe_raw_modalities.get(obj_idx, {})

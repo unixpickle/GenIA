@@ -2606,7 +2606,7 @@ def run_finetuning(cfg, state, sequence, pipeline_obj, evaluator, device):
     per_frame = cfg.finetuning.strategy == "perframe"
 
     from genia.core.utils import save_and_plot_loss_history
-    from genia.core.finetuning import finetune_perframe_tokens
+    from genia.core.finetune.strategies import finetune_perframe_tokens
 
     # Capture renders BEFORE finetuning
     with _TIMER.exclude():
@@ -2684,7 +2684,7 @@ def run_finetuning(cfg, state, sequence, pipeline_obj, evaluator, device):
 def _run_canonical_finetuning(cfg, state, sequence, pipeline_obj, device,
                               decoder, block_output_dir):
     """Canonical FINETUNE body — optimize one shared SLAT per object."""
-    from genia.core.finetuning import finetune_canonical_tokens
+    from genia.core.finetune.strategies import finetune_canonical_tokens
 
     # actionmesh deformation: when GT_SHAPES_INVERSION (a per-frame mode)
     # populated state.canonical_mesh_verts, FINETUNE warps Gaussians via Φ + R

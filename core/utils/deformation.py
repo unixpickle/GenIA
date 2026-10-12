@@ -149,12 +149,10 @@ def _warp_at_high_res(
         face_centroids_d = verts_canon_d[faces_d].mean(dim=1)         # (F, 3)
         K_eff = 3                                                      # face has 3 verts
 
-    # pytorch3d's optimised kNN (CUDA kernel + tiling) — ~12× faster than
-    # brute-force ``cdist+topk`` on P≈100k, V≈19k (146 ms → 12 ms) and
-    # avoids materialising the full B × V distance matrix, so peak memory
-    # is independent of V.  Imported here (not at module top) to follow
-    # the file's pattern of lazy pytorch3d imports.
-    from pytorch3d.ops import knn_points
+    # Local KNN uses a Metal selection kernel on MPS, avoiding the full
+    # query-by-reference distance matrix. CPU/CUDA use a bounded reference
+    # implementation until a specialized CUDA dispatch is restored.
+    from genia.core.ops import knn_points
 
     P = p_canon.shape[0]
     chunk = max(1, int(chunk_size))

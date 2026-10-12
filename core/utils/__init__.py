@@ -64,13 +64,11 @@ from .pipeline_state import (
     find_latest_pipeline_cache,
 )
 
-# ModelCache — lightweight singleton (stdlib + torch only)
-from .model_cache import ModelCache
-
 # ---------------------------------------------------------------------------
 # Lazy-import registry: attribute name -> (submodule, attribute)
 # ---------------------------------------------------------------------------
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    "ModelCache":                          (".model_cache", "ModelCache"),
     # Depth processing
     "compute_conegs_scaling":              (".depth", "compute_conegs_scaling"),
     "depth_to_pointmap":                   (".depth", "depth_to_pointmap"),

@@ -30,12 +30,11 @@ token_grad_visibility_mask: false     # canonical: true
 invisible_opacity_anchor_weight: 0.0  # canonical: 0.1
 
 # ── Restated from canonical.yaml (NOT overrides — keep the values in sync) ────
-# The 40GB FINETUNE OOM guard.  Inherited anyway; spelled out here because this
-# path is the one that runs on the big dynamic scenes.  Note the gate matters
-# more here: iterations are spent PER FRAME, so the ~2x checkpointed decode is
-# multiplied by the frame count.  Calibration behind the 30000: see canonical.yaml.
+# The FINETUNE activation-memory guard. Inherited anyway; spelled out here because this
+# path also runs on dynamic scenes. Recomputed decoder activations trade compute
+# for memory on every frame. Automatic thresholds: see canonical.yaml.
 decoder_checkpoint: true
-decoder_checkpoint_min_voxels: 30000
+decoder_checkpoint_min_voxels: null
 
 losses:
   lr_scale: 0.0                            # same as canonical

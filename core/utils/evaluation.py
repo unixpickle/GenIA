@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+from genia.core.device import get_device
 from rich.box import ROUNDED
 from rich.table import Table
 
@@ -830,8 +831,8 @@ def _deformation_warp_kwargs(state, cfg):
     """
     cmv = state.canonical_mesh_verts or None
     faces = state.canonical_mesh_faces or None
-    if cmv is not None and torch.cuda.is_available():
-        _dev = torch.device("cuda")
+    if cmv is not None:
+        _dev = get_device()
         cmv = {oi: t.to(_dev) for oi, t in cmv.items()}
         if faces:
             faces = {oi: t.to(_dev) for oi, t in faces.items()}
@@ -1025,7 +1026,7 @@ def render_voxel_keyframes(voxel_coords_by_object, tokens_by_object,
                 per_frame_mesh_rotations,
                 obj_idx,
                 int(getattr(fi, "frame", fi)),
-                torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+                get_device(),
                 canonical_mesh_faces,
             )
             if resolved is not None:
@@ -1223,7 +1224,7 @@ def render_keyframes(gaussians, tokens_by_object, sequence, per_frame=False,
         transform_scene_to_r3_convention,
         transform_scene_to_world,
     )
-    from .refinement import apply_pose_to_gaussian
+    from genia.core.utils.pose_refinement.rendering import apply_pose_to_gaussian
     from .rendering import (
         composite_on_render_bg,
         render_gaussians_to_image,

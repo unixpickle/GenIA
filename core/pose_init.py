@@ -21,6 +21,7 @@ See :func:`run_parallel_shape_and_poses_init` for the strategy's return values.
 import os
 
 import torch
+from genia.core.device import get_device
 
 from genia.core.utils.timing import get_timer
 
@@ -62,7 +63,7 @@ def extract_canonical_shape_latent(obj_idx, canon_frame_per_object, sequence,
     # Run stage-1 only on the canonical frame to get the shape latent
     canon_frame = sequence[canon_fid]
     canon_pm = transform_to_pytorch3d_convention(canon_frame.pointmap)
-    canon_pm_tensor = torch.from_numpy(canon_pm).float().cuda()
+    canon_pm_tensor = torch.from_numpy(canon_pm).float().to(get_device())
     canon_result = inference(
         canon_frame.image, canon_frame.masks[obj_idx],
         seed=seed, pointmap=canon_pm_tensor,
@@ -140,7 +141,7 @@ def run_parallel_shape_and_poses_init(obj_idx, tokens_by_object, canon_frame_per
         frames_data.append({
             "image": frame.image,
             "mask": mask,
-            "pointmap": torch.from_numpy(pm).float().cuda(),
+            "pointmap": torch.from_numpy(pm).float().to(get_device()),
         })
         valid_fids.append(fid)
 

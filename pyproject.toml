@@ -11,20 +11,26 @@ description = "GenIA: Generative Reconstruction with Test-Time Input Alignment"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
-# Dependencies are installed by install.sh (environment.yml + requirements.txt): most
-# of them are CUDA extensions compiled against one specific torch build, which pip's
-# resolver would otherwise replace. `pip install -e . --no-deps` only registers the
-# `genia.core` import path.
+
+[project.optional-dependencies]
+webui = ["flask>=3.1,<4"]
+# Platform dependencies are installed by install_macos.sh (requirements-macos.txt)
+# or the original install.sh (environment.yml + requirements.txt). Keeping these
+# outside project dependencies preserves the platform's pinned torch build.
+# `uv pip install -e . --no-deps` registers GenIA and its local model packages.
 
 # This checkout IS the `genia` package: `genia` maps onto the repository root, and the
 # code lives in `genia.core` (core/). The root has no __init__.py, so nothing but core/
 # is importable as part of the package.
+# setup.py discovers the local ported model packages as well as genia.core.
 [tool.setuptools]
-package-dir = { "genia" = "." }
-packages = ["genia.core", "genia.core.utils", "genia.core.configs"]
+license-files = ["LICENSE", "vendor/licenses/*"]
 
 [tool.setuptools.package-data]
 "genia.core.configs" = ["*.yaml", "*/*.yaml"]
+"genia.core.ops" = ["*.metal"]
+"genia.core.webui" = ["static/*.html", "static/*.css", "static/*.js"]
+"*" = ["*.yaml", "*.json", "*.txt"]
 
 [tool.ruff]
 line-length = 100

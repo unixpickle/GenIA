@@ -15,7 +15,7 @@ if [[ ! -d .venv ]]; then
 fi
 uv pip install --python .venv/bin/python -r requirements-macos.txt
 uv pip install --python .venv/bin/python --no-deps -e .
-.venv/bin/python -c 'import torch; assert torch.backends.mps.is_available(), "PyTorch MPS is unavailable"'
+.venv/bin/python -c 'import torch, torchvision; print(f"PyTorch {torch.__version__}, torchvision {torchvision.__version__}"); assert torch.backends.mps.is_available(), "PyTorch MPS is unavailable"'
 echo "Environment ready: source .venv/bin/activate"
 echo "Run tests with: python -m pytest tests -q"
 echo "Single-image, multiview and dynamic execution verified; Metal fine-tuning uses FP32."

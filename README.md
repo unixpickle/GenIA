@@ -11,7 +11,7 @@ your Mac through PyTorch MPS.
 
 ## Install
 
-You need an Apple silicon Mac and [uv](https://docs.astral.sh/uv/). The installer
+You need an Apple silicon Mac with macOS 14 or newer and [uv](https://docs.astral.sh/uv/). The installer
 creates a Python 3.12 environment and installs the pinned dependencies and local
 model implementations. No CUDA toolkit or recursive submodule checkout is needed.
 

@@ -21,10 +21,42 @@ bash install_macos.sh
 No recursive submodule checkout is needed for these tests. `setup.py` packages the
 local SAM 3D, MapAnything, MoGe/DINOv2, ActionMesh/TripoSG, RMBG, and geometry
 source trees. Metal source files ship in the wheel
-and are lazily compiled through PyTorch's `torch.mps.compile_shader`. The tested
-PyTorch version is 2.7.1, Python 3.12, on an Apple silicon Mac with macOS 26.
+and are lazily compiled through PyTorch's `torch.mps.compile_shader`. The macOS
+runtime pins PyTorch 2.14.1 and torchvision 0.29.1, using Python 3.12 on Apple
+silicon with macOS 14 or newer. The full pipeline and Metal validation recorded
+below originally used PyTorch 2.7.1 on macOS 26.
 CPU tests also run without an Apple GPU; Metal cases run only with MPS available.
 The setup script installs the pinned runtime and test dependencies.
+
+The PyTorch upgrade addresses a reproduced 2.7.1 crash: advanced indexing under
+a deliberately low MPS allocator limit exited with `SIGTRAP`, including when its
+output was preallocated. Both indexing cases succeeded on 2.14.1; the ordinary
+allocation control still raised a catchable OOM exception. This establishes that
+the reproducer no longer crashes, not that every allocation failure is fixed.
+Upgrade the matching pair together, then run the tests from a terminal with GPU
+access:
+
+```bash
+uv pip install --python .venv/bin/python -r requirements-macos.txt
+.venv/bin/python -c 'import torch, torchvision; print(torch.__version__, torchvision.__version__); assert torch.backends.mps.is_available()'
+.venv/bin/python -m pytest tests -q
+```
+
+Restart the WebUI after upgrading so its workers use the new runtime.
+
+Upgrade validation on 2026-10-12: **709 tests passed, none skipped**, in 53.91 s
+with PyTorch 2.14.1 and torchvision 0.29.1 installed together. This includes the
+Metal kernels and CPU/MPS value/gradient comparisons, decoder checkpointing,
+fine-tuning precision, model imports, and WebUI tests. `uv pip check` passed for
+all 149 installed packages; the macOS lock file was regenerated with uv. The
+isolated indexing/OOM reproducer also passed again in the installed environment.
+Test results and the reproducer log are under `results/macos-port/pytorch-2.14.1/`.
+The bundled `generated_elephant` scene also completed on MPS with cached pretrained
+models, including shape/pose sampling, rendering-guided appearance, FP32
+fine-tuning, final evaluation, and Gaussian/GLB/preview export. Appearance sampling
+and guidance used two steps each; pose refinement and fine-tuning used two
+iterations each. This is an end-to-end compatibility smoke test, not a generation
+quality benchmark. Its outputs are in that directory's `generation/` subdirectory.
 
 ### Model cache and demo commands
 

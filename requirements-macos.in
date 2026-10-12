@@ -1,7 +1,9 @@
 # Development environment for the macOS port. End-to-end dependencies are still
 # being ported; see docs/macos-port.md. Compile with uv pip compile.
-torch==2.7.1
-torchvision==0.22.1
+# 2.7.1 can SIGTRAP during MPS indexing allocation recovery. The isolated
+# low-memory indexing reproducer succeeds on 2.14.1.
+torch==2.14.1
+torchvision==0.29.1
 numpy>=1.26,<3
 Pillow>=11,<13
 pytest>=8,<10
